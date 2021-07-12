@@ -1,0 +1,31 @@
+## This folder contains multiple files for adjusting PRS of six diseases in a single sample.
+
+## The input file has to be normalized to have real REF and ALT, and the SNP IDs have to be CHR:POSP:REF:ALT
+
+# R script file 
+prs_adjustment_single_sample.R: Run as below:
+Rscript prs_adjustment_single_sample.R sample_raw_score sample_raw_pc eigenval pc_model
+The four arguments are: 
+sample_raw_score: PRS raw score file output from plink2 --score
+sample_raw_pc: plink bed/bim/fam file containing a single sample file
+eigenval: the ref_pcs.eigenval file containing 4 eigen values for 4 first PCs
+pc_model: A linear model saved in a file for a specific disease, e.g., af_pc_model.RDS shown as below
+
+# ref_pcs files are from Plink2 PCA analysis:
+#ref_pcs.log: output log file of Plink/2.oa PCA using MGB biobank samples of 8 batches. This is file is not required.
+ref_pcs.acount:  pca analysis resulting data containing 16443 variant frequency, will be used in new sample projection to PC space
+ref_pcs.eigenval: pca analysis resulting data containing 4 eigen values for 4 first PCs, will be used for scalling of new sample projection PCs
+ref_pcs.eigenvec: pca analysis resulting data containing 4 PC for all samples
+ref_pcs.eigenved.newid: the sample FID and IID in ref_pcs.eigenved are modified so that they have same format
+ref_pcs.eigenvec.var: pca analysis resulting data containing all variants' weights
+
+# .RDS files are PRS ~ PC1 + PC2 + PC3 + PC4 models for six diseases
+af_pc_model.RDS: linear model for AF
+cad_pc_model.RDS: linear model for CAD
+t2d_pc_model.RDS: linear model for T2D
+breastC_pc_model.RDS: linear model for breastC
+colorectalC_pc_model.RDS: linear model for colorectalC
+prostateC_pc_model.RDS: linear model for prostateC
+
+# race informative variants list of 16385 generated as below. This file is used to filter the new sample in the process of PC projection
+less eight_batches_minus30.bim | awk '{print $2}' > race_inform_MGBbiobank_id.txt
