@@ -1,0 +1,127 @@
+To generate VCF files from GTC files we used a modified version of the
+gtc_to_vcf.py script, originally available from
+
+https://github.com/Illumina/GTCtoVCF
+
+More precisely, we modified the file LocusEntryFactory.py, which
+implements a module used by the gtc_to_vcf.py script.
+
+We made our modification relative to commit
+
+3fdd3910addd2a6d8902329170366409a3ba1eaf
+
+of the original Illumina repo's master branch.
+
+Below is the output of the `git show` command for the commit
+containing our modification.  This output includes our original commit
+message (which explains in detail the rationale for the modification),
+followed by a diff patch showing the exact change to the source code.
+
+---------------------------------------------------------------------
+
+commit 4632c4ad012acfe40d97e0f5c830f9c61a549f29
+Author: Gabriel F. Berriz <gberriz@bics.bwh.harvard.edu>
+Date:   Tue Apr 14 08:52:13 2020 -0400
+
+    Make --unsquash-duplicates affect multiallelics
+    
+    With the original version of the gtc_to_vcf.py, specifying
+    --unsquash-duplicates would result in the generation of a separate VCF
+    row for every record in the chip manifest file, *with the exception*
+    of groups of records corresponding to "multiallelic sites".  The
+    latter were still combined to generate a single VCF record.
+    
+    The change in this commit eliminates this exception, so that
+    specifying --unsquash-duplicates results in a separate VCF for every
+    record in the chip manifest file, without exception.
+    
+    What we are calling here "multiallelic sites" are loci
+    (i.e. chromosome + position) appearing in multiple BPM records, such
+    that the total number of distinct "plus-strand alleles" associated
+    with at least one of those records is greater than two.
+    
+    "Plus-strand alleles" are those that are mentioned in the SNP column
+    of BPM records, when the RefStrand column is '+', and their
+    complement, when the RefStrand column is '-'.
+    
+    For example, the two records for chromosome 1 and position 215990450
+    given in the manifest GDA-8v1-0-EA_20033910_A1.csv manifest constitute
+    one such "multiallelic" group.  They are shown below:
+    
+        RECORD 12690 ====================================================================================================================================
+         0           IlmnID: 1:215990450-C-A-0_T_F_2304258643
+         1             Name: 1:215990450-C-A
+         2       IlmnStrand: TOP
+         3              SNP: [A/C]
+         4      AddressA_ID: 0040686220
+         5 AlleleA_ProbeSeq: GCCTTGCAGAGCTCATCACTCTGATCCTGCACTAACTTTTGAGTTTTAGC
+         6      AddressB_ID:
+         7 AlleleB_ProbeSeq:
+         8      GenomeBuild: 37
+         9              Chr: 1
+        10          MapInfo: 215990450
+        11           Ploidy: diploid
+        12          Species: Homo sapiens
+        13           Source: PAGE
+        14    SourceVersion: 0
+        15     SourceStrand: TOP
+        16        SourceSeq: CACCTCACTGCCTTGCAGAGCTCATCACTCTGATCCTGCACTAACTTTTGAGTTTTAGC[A/C]CATGGATACCATGTTTTCCATAGGAGATCATATCCAAGAATGATGCCATTTGGCTTCCG
+        17    TopGenomicSeq: CACCTCACTGCCTTGCAGAGCTCATCACTCTGATCCTGCACTAACTTTTGAGTTTTAGC[A/C]CATGGATACCATGTTTTCCATAGGAGATCATATCCAAGAATGATGCCATTTGGCTTCCG
+        18        BeadSetID: 1080
+        19     Exp_Clusters: 3
+        20        RefStrand: +
+        21   Intensity_Only: 0
+    
+        RECORD 1913754 ==================================================================================================================================
+         0           IlmnID: rs73090721-138_B_R_2268572921
+         1             Name: rs73090721
+         2       IlmnStrand: BOT
+         3              SNP: [T/C]
+         4      AddressA_ID: 0094734545
+         5 AlleleA_ProbeSeq: AATGGCATCATTCTTGGATATGATCTCCTATGGAAAACATGGTATCCATG
+         6      AddressB_ID:
+         7 AlleleB_ProbeSeq:
+         8      GenomeBuild: 37
+         9              Chr: 1
+        10          MapInfo: 215990450
+        11           Ploidy: diploid
+        12          Species: Homo sapiens
+        13           Source: dbSNP
+        14    SourceVersion: 138
+        15     SourceStrand: TOP
+        16        SourceSeq: ACACCTCACTGCCTTGCAGAGCTCATCACTCTGATCCTGCACTAACTTTTGAGTTTTAGC[A/G]CATGGATACCATGTTTTCCATAGGAGATCATATCCAAGAATGATGCCATTTGGCTTCCGT
+        17    TopGenomicSeq: ACACCTCACTGCCTTGCAGAGCTCATCACTCTGATCCTGCACTAACTTTTGAGTTTTAGC[A/G]CATGGATACCATGTTTTCCATAGGAGATCATATCCAAGAATGATGCCATTTGGCTTCCGT
+        18        BeadSetID: 1829
+        19     Exp_Clusters: 3
+        20        RefStrand: -
+        21   Intensity_Only: 0
+    
+    The first one of these records has a + RefStrand value, so its
+    "plus-strand alleles" are A and C (i.e., the alleles mentioned in the
+    SNP field).  The second one has a - RefStrand value, so its
+    "plus-strand alleles" are A and G (i.e., the complements of the
+    alleles mentioned in the SNP field).  Taken together, a total of 3
+    distinct "plus-strand alleles", namely A, C, and G, are associated
+    with the records for this locus.  Therefore, the original version of
+    the gtc_to_vcf.py would have squashed these two records, even in the
+    presence of the --unsquash-duplicates flag.
+
+diff --git a/LocusEntryFactory.py b/LocusEntryFactory.py
+index 9c03d0e..e846e72 100644
+--- a/LocusEntryFactory.py
++++ b/LocusEntryFactory.py
+@@ -57,14 +57,8 @@ class LocusEntryFactory(object):
+ 
+         for _, value in position2record.items():
+             if len(value) > 1 and self._unsquash_duplicates:
+-                alleles = set()
+                 for bpm_record in value:
+-                    alleles.update(bpm_record.plus_strand_alleles)
+-                if len(alleles) == 2:
+-                    for bpm_record in value:
+-                        yield [bpm_record]
+-                else:
+-                    yield value
++                    yield [bpm_record]
+             else:
+                 yield value
