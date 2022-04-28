@@ -1,4 +1,5 @@
 ## This folder contains multiple files for adjusting PRS of six diseases in a single sample.
+## Any questions can be directed to Limin Hao: lhao2@partners.org
 
 ## The input file has to be normalized to have real REF and ALT, and the SNP IDs have to be CHR:POSP:REF:ALT
 
